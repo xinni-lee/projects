@@ -1,0 +1,248 @@
+// --- Game Configuration ---
+let scrollSpeed = 5;
+let gravity = 0.7;
+let jumpForce = -15;
+let groundHeight;
+let score = 0;
+let gameState = 'running'; // 'running', 'gameOver'
+
+// --- Player (Penguin) ---
+let penguin;
+
+// --- Obstacles (Durians) ---
+let obstacles = [];
+// let obstacleFrequency = 75; // <<< CHANGE: Removed fixed frequency
+let minObstacleDelay = 60;  // <<< CHANGE: Minimum frames between obstacles (e.g., 1 second at 60fps)
+let maxObstacleDelay = 150; // <<< CHANGE: Maximum frames between obstacles (e.g., 2.5 seconds at 60fps)
+let framesUntilNextObstacle; // <<< CHANGE: Timer to count down frames for next spawn
+let minObstacleHeight = 50;
+let maxObstacleHeight = 150;
+
+
+// --- Background Elements ---
+let bgLayer1X = 0; // Farthest background (Skyline)
+let bgLayer2X = 0; // Closer background (Ground)
+let bgLayer1Speed = 0.5;
+let bgLayer2Speed = scrollSpeed; // Ground moves with obstacles
+
+function setup() {
+  createCanvas(windowWidth, windowHeight > 400 ? 400 : windowHeight); // Responsive width, fixed/max height
+  groundHeight = height - 50; // Where the ground is visually
+
+  // Initialize Penguin
+  penguin = new Penguin();
+
+  // <<< CHANGE: Set the initial random delay for the first obstacle
+  setNextObstacleTimer();
+
+  textAlign(CENTER, CENTER);
+  textSize(24);
+  fill(255); // Default text color
+}
+
+// <<< CHANGE: Helper function to set the random timer
+function setNextObstacleTimer() {
+    framesUntilNextObstacle = round(random(minObstacleDelay, maxObstacleDelay));
+}
+
+function draw() {
+  // --- Background ---
+  drawBackground();
+
+  // --- Game Logic ---
+  if (gameState === 'running') {
+    // Update and draw Penguin
+    penguin.update();
+    penguin.show();
+
+    // Manage Obstacles (spawning is now inside)
+    manageObstacles(); // <<< CHANGE: Spawning logic updated within this function
+
+    // Check for Collisions
+    for (let obs of obstacles) {
+      if (penguin.hits(obs)) {
+        gameOver();
+        break; // Stop checking after collision
+      }
+    }
+
+    // Update Score
+    score++;
+    displayScore();
+
+  } else if (gameState === 'gameOver') {
+    // Display Game Over screen
+    displayGameOver();
+    // Draw static elements
+    penguin.show(); // Show penguin in its final position
+    for (let obs of obstacles) {
+      obs.show(); // Show obstacles in their final positions
+    }
+    displayScore(); // Show final score
+  }
+}
+
+// --- Input Handling ---
+function keyPressed() {
+  if ((key === ' ' || keyCode === UP_ARROW) && gameState === 'running') {
+    penguin.jump();
+  } else if (gameState === 'gameOver' && (key === ' ' || keyCode === ENTER)) {
+    resetGame();
+  }
+}
+
+function mousePressed() {
+    if (gameState === 'running') {
+        penguin.jump();
+    } else if (gameState === 'gameOver') {
+        resetGame();
+    }
+}
+
+
+// --- Game State Functions ---
+function gameOver() {
+  gameState = 'gameOver';
+}
+
+function resetGame() {
+  score = 0;
+  obstacles = [];
+  penguin = new Penguin(); // Reset penguin position and velocity
+  // <<< CHANGE: Reset the obstacle timer for the new game
+  setNextObstacleTimer();
+  gameState = 'running';
+}
+
+// --- Drawing Functions ---
+function drawBackground() {
+  background(135, 206, 250); // Sky blue
+
+  // --- Background Layer 1: Skyline (Moves slowly) ---
+  bgLayer1X -= bgLayer1Speed;
+  if (bgLayer1X < -width) {
+    bgLayer1X = 0;
+  }
+  drawSkyline(bgLayer1X);
+  drawSkyline(bgLayer1X + width);
+
+  // --- Background Layer 2: Ground (Moves at scrollSpeed) ---
+  bgLayer2X -= bgLayer2Speed;
+  if (bgLayer2X < -width) {
+    bgLayer2X = 0;
+  }
+  noStroke();
+  fill(34, 139, 34); // Dark Green
+  rect(0, groundHeight, width, height - groundHeight);
+}
+
+function drawSkyline(startX) {
+    push();
+    translate(startX, 0);
+
+    // Simple representation of Marina Bay Sands (MBS)
+    fill(200); noStroke();
+    let mbsBaseY = groundHeight - 180; let mbsWidth = 80; let mbsHeight = 150; let mbsGap = 10;
+    rect(width * 0.3, mbsBaseY, mbsWidth, mbsHeight);
+    rect(width * 0.3 + mbsWidth + mbsGap, mbsBaseY, mbsWidth, mbsHeight);
+    rect(width * 0.3 + 2 * (mbsWidth + mbsGap), mbsBaseY, mbsWidth, mbsHeight);
+    fill(100);
+    beginShape(); vertex(width * 0.3 - 10, mbsBaseY); vertex(width * 0.3 + 3 * mbsWidth + 2 * mbsGap + 10, mbsBaseY); vertex(width * 0.3 + 3 * mbsWidth + 2 * mbsGap - 10, mbsBaseY - 25); vertex(width * 0.3 + 10, mbsBaseY - 25); endShape(CLOSE);
+
+    // Simple representation of Singapore Flyer
+    let flyerX = width * 0.7; let flyerY = groundHeight - 100; let flyerRadius = 80;
+    stroke(100); strokeWeight(4); noFill(); ellipse(flyerX, flyerY, flyerRadius * 2, flyerRadius * 2);
+    line(flyerX, flyerY - flyerRadius, flyerX, flyerY + flyerRadius); line(flyerX - flyerRadius, flyerY, flyerX + flyerRadius, flyerY); line(flyerX - flyerRadius * 0.7, flyerY - flyerRadius * 0.7, flyerX + flyerRadius * 0.7, flyerY + flyerRadius * 0.7); line(flyerX + flyerRadius * 0.7, flyerY - flyerRadius * 0.7, flyerX - flyerRadius * 0.7, flyerY + flyerRadius * 0.7);
+
+    // Generic Buildings
+    fill(180); noStroke();
+    rect(width * 0.1, groundHeight - 150, 50, 150); rect(width * 0.18, groundHeight - 120, 40, 120); rect(width * 0.8, groundHeight - 200, 60, 200); rect(width * 0.9, groundHeight - 100, 40, 100);
+    pop();
+}
+
+function manageObstacles() {
+  // <<< CHANGE: Decrement timer and check for spawning >>>
+  framesUntilNextObstacle--;
+  if (framesUntilNextObstacle <= 0) {
+    obstacles.push(new Obstacle());
+    // Calculate the next random delay
+    setNextObstacleTimer();
+  }
+  // <<< END CHANGE >>>
+
+  // Update and draw obstacles (existing logic)
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    obstacles[i].update();
+    obstacles[i].show();
+
+    // Remove obstacles that are off-screen
+    if (obstacles[i].offscreen()) {
+      obstacles.splice(i, 1);
+    }
+  }
+}
+
+function displayScore() {
+  fill(255); noStroke(); textSize(32);
+  text('Score: ' + score, width / 2, 50);
+}
+
+function displayGameOver() {
+  fill(0, 0, 0, 150); rect(0, 0, width, height);
+  fill(255, 0, 0); textSize(64); text('GAME OVER', width / 2, height / 2 - 40);
+  fill(255); textSize(24); text('Final Score: ' + score, width / 2, height / 2 + 20);
+  textSize(18); text('Press SPACE or Click to Restart', width / 2, height / 2 + 60);
+}
+
+
+// --- Penguin Class ---
+class Penguin {
+  constructor() {
+    this.r = 50; this.x = this.r * 1.5; this.y = groundHeight - this.r; this.velocityY = 0; this.onGround = true;
+  }
+  jump() { if (this.onGround) { this.velocityY = jumpForce; this.onGround = false; } }
+  hits(obstacle) {
+    let pLeft = this.x - this.r / 2.5; let pRight = this.x + this.r / 2.5; let pTop = this.y - this.r / 2; let pBottom = this.y + this.r / 2;
+    let oLeft = obstacle.x; let oRight = obstacle.x + obstacle.w; let oTop = obstacle.y; let oBottom = obstacle.y + obstacle.h;
+    return pRight > oLeft && pLeft < oRight && pBottom > oTop && pTop < oBottom;
+  }
+  update() {
+    this.velocityY += gravity; this.y += this.velocityY;
+    if (this.y >= groundHeight - this.r / 2) { this.y = groundHeight - this.r / 2; this.velocityY = 0; this.onGround = true; }
+    else { this.onGround = false; }
+  }
+  show() {
+    push(); translate(this.x, this.y);
+    fill(0); noStroke(); ellipse(0, 0, this.r * 0.8, this.r); // Body
+    fill(255); ellipse(0, this.r * 0.1, this.r * 0.5, this.r * 0.7); // Belly
+    fill(255); ellipse(-this.r * 0.15, -this.r * 0.2, this.r * 0.2, this.r * 0.2); ellipse(this.r * 0.15, -this.r * 0.2, this.r * 0.2, this.r * 0.2); // Eye whites
+    fill(0); ellipse(-this.r * 0.15, -this.r * 0.2, this.r * 0.1, this.r * 0.1); ellipse(this.r * 0.15, -this.r * 0.2, this.r * 0.1, this.r * 0.1); // Pupils
+    fill(255, 165, 0); triangle(0, -this.r * 0.1, -this.r * 0.1, 0, this.r * 0.1, 0); // Beak
+    fill(0); ellipse(-this.r * 0.35, 0, this.r * 0.2, this.r * 0.5); ellipse(this.r * 0.35, 0, this.r * 0.2, this.r * 0.5); // Flippers
+    pop();
+  }
+}
+
+// --- Obstacle Class (Durian) ---
+class Obstacle {
+  constructor() {
+    this.w = 40; this.h = 40; this.x = width; this.y = groundHeight - this.h;
+  }
+  update() { this.x -= scrollSpeed; }
+  offscreen() { return this.x < -this.w; }
+  show() {
+    push(); translate(this.x + this.w / 2, this.y + this.h / 2);
+    fill(139, 119, 19); noStroke(); ellipse(0, 0, this.w, this.h); // Body
+    stroke(85, 107, 47); strokeWeight(2); let spikeLength = 5; // Spikes
+    for (let angle = 0; angle < TWO_PI; angle += PI / 6) { let x1 = cos(angle) * (this.w / 2.2); let y1 = sin(angle) * (this.h / 2.2); let x2 = cos(angle) * (this.w / 2 + spikeLength); let y2 = sin(angle) * (this.h / 2 + spikeLength); line(x1, y1, x2, y2); }
+    pop();
+  }
+}
+
+// Make canvas responsive to window resize
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight > 400 ? 400 : windowHeight);
+    groundHeight = height - 50;
+     if (penguin && penguin.y + penguin.r / 2 > groundHeight) { penguin.y = groundHeight - penguin.r / 2; }
+     bgLayer1X = 0; bgLayer2X = 0;
+}
